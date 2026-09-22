@@ -1,0 +1,24 @@
+[project]
+name = "rss-translator"
+version = "0.1.0"
+description = "Fetch RSS news from Miniflux and translate to Chinese using LLM"
+requires-python = ">=3.13"
+dependencies = [
+    "beautifulsoup4>=4.14.3",
+    "python-dotenv>=1.2.1",
+    "requests>=2.32.5",
+]
+
+[project.scripts]
+rss-news = "rss_news_translator:main"
+journal-search = "journal_search:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["rss_news_translator.py", "journal_search.py"]
+exclude = ["*.pyc"]
+
+[tool.uv]

@@ -1,0 +1,852 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>论文速览 · Papers Digest</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f5f7f8;
+    --panel: #ffffff;
+    --ink: #172026;
+    --muted: #5d6972;
+    --line: #d9e0e4;
+    --accent: #0f766e;
+    --accent-ink: #ffffff;
+    --soft: #e7f4f1;
+    --link: #2459a6;
+    --star: #d97706;
+    --shadow: 0 12px 28px rgba(23, 32, 38, 0.08);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    min-width: 320px;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+                 "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.6;
+  }
+  a { color: var(--link); text-decoration-thickness: 0.08em; text-underline-offset: 0.18em; }
+  button { font: inherit; cursor: pointer; }
+
+  .shell {
+    width: min(1440px, 100%);
+    margin: 0 auto;
+    padding: 18px clamp(12px, 2.4vw, 32px) 96px;
+  }
+
+  /* ---------- 顶栏 ---------- */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    margin: -18px calc(clamp(12px, 2.4vw, 32px) * -1) 18px;
+    padding: 14px clamp(12px, 2.4vw, 32px) 12px;
+    background: rgba(245, 247, 248, 0.94);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--line);
+  }
+  .topline {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .brand h1 { margin: 0; font-size: clamp(19px, 2.4vw, 25px); letter-spacing: -0.01em; }
+  .brand .sub { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+  .stats { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .stat-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 11px;
+    border-radius: 999px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .stat-pill b { color: var(--ink); font-weight: 600; }
+  .stat-pill.ok { background: var(--soft); border-color: #bfe3dc; color: #0b5b54; }
+  .stat-pill.warn { background: #fdf3e3; border-color: #f0d6a8; color: #8a5a09; }
+
+  .controls {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .search {
+    flex: 1 1 320px;
+    min-width: 220px;
+    padding: 9px 13px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--panel);
+    font-size: 14px;
+    color: var(--ink);
+  }
+  .search:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--panel); }
+  .seg button {
+    border: 0;
+    background: transparent;
+    padding: 8px 12px;
+    font-size: 13px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button.on { background: var(--accent); color: var(--accent-ink); }
+
+  /* ---------- 布局 ---------- */
+  .content {
+    display: grid;
+    grid-template-columns: 236px minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+  }
+  .sidebar { position: sticky; top: 132px; display: flex; flex-direction: column; gap: 14px; }
+  .side-block {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px 13px;
+    box-shadow: var(--shadow);
+  }
+  .side-block h2 {
+    margin: 0 0 8px;
+    font-size: 11.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .side-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    border: 0;
+    background: transparent;
+    padding: 5px 7px;
+    border-radius: 7px;
+    font-size: 13px;
+    color: var(--ink);
+    text-align: left;
+  }
+  .side-item:hover { background: var(--soft); }
+  .side-item.on { background: var(--soft); color: #0b5b54; font-weight: 600; }
+  .side-item .n { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .side-item.on .n { color: #0b5b54; }
+
+  /* ---------- 卡片 ---------- */
+  .day-heading {
+    margin: 22px 0 10px;
+    font-size: 14px;
+    color: var(--muted);
+    font-weight: 600;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--line);
+  }
+  .day-heading:first-child { margin-top: 0; }
+
+  .article {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    box-shadow: var(--shadow);
+    break-inside: avoid;
+  }
+  .card-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  .pick { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
+  .star {
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: #b9c2c8;
+    border-radius: 8px;
+    padding: 1px 8px;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  .star:hover { border-color: var(--star); color: var(--star); }
+  .star.on { color: var(--star); border-color: var(--star); background: #fdf6ea; }
+  .journal-badge {
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--soft);
+    color: #0b5b54;
+    font-weight: 600;
+    font-size: 11.5px;
+  }
+  .zotero-badge {
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #e8eefb;
+    color: #2a4a8f;
+    font-weight: 600;
+    font-size: 11.5px;
+  }
+  .sep { color: #c3ccd2; }
+
+  .titles { margin: 0 0 8px; }
+  .title-cn, .title-fallback {
+    margin: 0;
+    font-size: 16.5px;
+    line-height: 1.45;
+    font-weight: 650;
+    letter-spacing: -0.005em;
+  }
+  .title-en {
+    margin: 3px 0 0;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.45;
+  }
+  .abstracts { font-size: 13.5px; }
+  .abs-zh, .abs-fallback { margin: 0; line-height: 1.7; }
+  .abs-en {
+    margin: 8px 0 0;
+    padding-left: 11px;
+    border-left: 2px solid var(--line);
+    color: var(--muted);
+    font-size: 12.5px;
+    line-height: 1.6;
+  }
+  .clamped { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+
+  .actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+  .btn {
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--muted);
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-size: 12.5px;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .btn.primary:hover { color: var(--accent-ink); filter: brightness(1.08); }
+  .btn:disabled { opacity: 0.55; cursor: default; }
+  .btn.done { background: #e8eefb; border-color: #c3d2f0; color: #2a4a8f; }
+  .btn.done:disabled { opacity: 1; }
+
+  .empty { padding: 48px 0; text-align: center; color: var(--muted); }
+
+  /* ---------- 语言显示 ----------
+     title-fallback / abs-fallback 用于「没有中文译文」的条目，
+     它们承载的是英文原文，所以在任何语言模式下都不能被隐藏。 */
+  body.lang-en .title-cn, body.lang-en .abs-zh { display: none; }
+  body.lang-zh .title-en, body.lang-zh .abs-en { display: none; }
+
+  /* ---------- 底部操作栏 ---------- */
+  .actionbar {
+    position: fixed;
+    left: 50%;
+    bottom: 20px;
+    transform: translate(-50%, 140%);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--ink);
+    color: #fff;
+    border-radius: 999px;
+    box-shadow: 0 14px 34px rgba(23, 32, 38, 0.3);
+    font-size: 13.5px;
+    transition: transform 0.2s ease;
+    z-index: 30;
+  }
+  .actionbar.show { transform: translate(-50%, 0); }
+  .actionbar .btn {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.22);
+    color: #fff;
+  }
+  .actionbar .btn:hover { background: rgba(255, 255, 255, 0.22); color: #fff; }
+  .actionbar .btn.primary { background: var(--accent); border-color: var(--accent); }
+
+  mark { background: #fde68a; color: inherit; padding: 0 1px; border-radius: 2px; }
+
+  @media (max-width: 860px) {
+    .content { grid-template-columns: 1fr; }
+    .sidebar { position: static; }
+    .topbar { position: static; margin-top: 0; }
+  }
+
+  @media print {
+    .topbar, .sidebar, .actionbar, .actions, .pick, .star { display: none !important; }
+    .article { box-shadow: none; border-color: #ccc; }
+    .clamped { -webkit-line-clamp: unset; display: block; }
+  }
+</style>
+</head>
+<body class="lang-both">
+
+<div class="shell">
+  <header class="topbar">
+    <div class="topline">
+      <div class="brand">
+        <h1>论文速览</h1>
+        <p class="sub">最近 __DAYS__ 天 · __COUNT__ 篇 · 生成于 __GENERATED__</p>
+      </div>
+      <div class="stats">
+        <span class="stat-pill" id="visibleCount">…</span>
+        <span class="stat-pill" id="starCount">★ 0</span>
+        <span class="stat-pill" id="zoteroCount">✓ 0</span>
+        <span class="stat-pill" id="serverPill">检测本地服务…</span>
+      </div>
+    </div>
+    <div class="controls">
+      <input class="search" id="search" type="search"
+             placeholder="搜索标题 / 摘要 / 作者 / DOI —— 中英文都能搜">
+      <div class="seg" id="langSeg">
+        <button data-lang="both" class="on">中英对照</button>
+        <button data-lang="zh">仅中文</button>
+        <button data-lang="en">仅英文</button>
+      </div>
+      <div class="seg" id="daySeg">
+        <button data-days="7">近 7 天</button>
+        <button data-days="30">近 30 天</button>
+        <button data-days="0" class="on">全部</button>
+      </div>
+      <div class="seg" id="viewSeg">
+        <button data-view="all" class="on">全部文章</button>
+        <button data-view="starred">★ 已收藏</button>
+        <button data-view="zotero">✓ 已加入 Zotero</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="content">
+    <aside class="sidebar">
+      <div class="side-block"><h2>期刊</h2><div id="journalList"></div></div>
+    </aside>
+    <main id="list"></main>
+  </div>
+</div>
+
+<div class="actionbar" id="actionbar">
+  <span id="pickCount">已选 0 篇</span>
+  <button class="btn primary" data-act="zotero">导入 Zotero</button>
+  <button class="btn" data-act="bibtex">导出 BibTeX</button>
+  <button class="btn" data-act="clear">清空</button>
+</div>
+
+<script id="article-data" type="application/json">__DATA__</script>
+<script>
+(function () {
+  "use strict";
+
+  var ARTICLES = JSON.parse(document.getElementById("article-data").textContent);
+  var TRANSLATED = __TRANSLATED__;
+  var DAY_MS = 86400000;
+  var CHUNK = 60;
+  var STORE_KEY = "papers-digest-starred";
+  var ZOTERO_KEY = "papers-digest-zotero";
+  var SERVER = false;   // 本地服务在不在
+  var ZOTERO = false;   // Zotero 在不在（服务在但 Zotero 没开时，入库按钮要提示）
+
+  var list = document.getElementById("list");
+  var searchBox = document.getElementById("search");
+  var actionbar = document.getElementById("actionbar");
+  var visibleCount = document.getElementById("visibleCount");
+  var starCount = document.getElementById("starCount");
+  var zoteroCount = document.getElementById("zoteroCount");
+  var serverPill = document.getElementById("serverPill");
+  var pickCount = document.getElementById("pickCount");
+
+  function loadSet(key) {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(key) || "[]"));
+    } catch (e) {
+      return new Set();
+    }
+  }
+  function saveSet(key, set) {
+    try {
+      localStorage.setItem(key, JSON.stringify(Array.from(set)));
+    } catch (e) { /* file:// 下可能被禁用，忽略 */ }
+  }
+
+  var state = {
+    query: "",
+    journal: "all",
+    days: 0,        // 0 = 全部。页面本来就只含抓取窗口内的文章，默认不做二次收窄
+    lang: "both",
+    view: "all",    // all | starred | zotero
+    starred: loadSet(STORE_KEY),
+    zotero: loadSet(ZOTERO_KEY),
+    selected: new Set()
+  };
+
+  // 生成页面时已经把「已入库 Zotero」的 DOI 烤进数据里了，
+  // 所以不开本地服务、直接双击静态文件也能用这个筛选器。
+  ARTICLES.forEach(function (a) { if (a.inZotero) state.zotero.add(a.doi); });
+
+  var filtered = [];
+  var rendered = 0;
+  var sentinel = null;
+
+  // ---------------------------------------------------------------- 工具
+  var ESC = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return ESC[c]; });
+  }
+  function highlight(text, q) {
+    text = text || "";
+    if (!q) return esc(text);
+    var lower = text.toLowerCase(), ql = q.toLowerCase(), out = "", i = 0, idx;
+    while ((idx = lower.indexOf(ql, i)) !== -1) {
+      out += esc(text.slice(i, idx)) + "<mark>" + esc(text.slice(idx, idx + ql.length)) + "</mark>";
+      i = idx + ql.length;
+    }
+    return out + esc(text.slice(i));
+  }
+  function authorLine(a) {
+    var names = (a.authors || []).map(function (x) {
+      return x.family ? (x.given ? x.given + " " + x.family : x.family) : x.given;
+    }).filter(Boolean);
+    if (!names.length) return "";
+    if (names.length <= 3) return names.join(", ");
+    return names.slice(0, 3).join(", ") + " 等 " + names.length + " 位作者";
+  }
+  function daysAgo(iso) {
+    if (!iso) return Infinity;
+    var t = Date.parse(iso);
+    return isNaN(t) ? Infinity : (Date.now() - t) / DAY_MS;
+  }
+
+  // ---------------------------------------------------------------- 过滤
+  function matches(a) {
+    if (state.journal !== "all" && a.journal !== state.journal) return false;
+    if (state.view === "starred" && !state.starred.has(a.doi)) return false;
+    if (state.view === "zotero" && !state.zotero.has(a.doi)) return false;
+    if (state.days && daysAgo(a.published) > state.days + 1) return false;
+    if (state.query) {
+      var hay = [
+        a.title, a.titleCn, a.abstract, a.abstractCn, a.doi, a.journalName,
+        (a.authors || []).map(function (x) { return (x.given || "") + " " + (x.family || ""); }).join(" ")
+      ].join(" ").toLowerCase();
+      var terms = state.query.toLowerCase().split(/\s+/).filter(Boolean);
+      for (var i = 0; i < terms.length; i++) {
+        if (hay.indexOf(terms[i]) === -1) return false;
+      }
+    }
+    return true;
+  }
+
+  // ---------------------------------------------------------------- 渲染
+  function abstractBlock(a) {
+    var cn = a.abstractCn || "", en = a.abstract || "";
+    if (!cn && !en) return '<div class="abstracts"><p class="abs-fallback">（无摘要）</p></div>';
+    var body = "";
+    if (cn) {
+      body += '<p class="abs-zh clamped">' + highlight(cn, state.query) + "</p>";
+      if (en) body += '<p class="abs-en clamped">' + highlight(en, state.query) + "</p>";
+    } else {
+      // 没有中文译文时，英文原文是主角，用不会被语言开关隐藏的 fallback 类
+      body += '<p class="abs-fallback clamped">' + highlight(en, state.query) + "</p>";
+    }
+    if (Math.max(cn.length, en.length) > 300) {
+      body += '<div class="actions"><button class="btn" data-act="expand">展开摘要</button></div>';
+    }
+    return '<div class="abstracts">' + body + "</div>";
+  }
+
+  function cardEl(a) {
+    var el = document.createElement("article");
+    el.className = "article";
+    el.dataset.doi = a.doi;
+
+    var starred = state.starred.has(a.doi) ? " on" : "";
+    var picked = state.selected.has(a.doi) ? " checked" : "";
+    var inZotero = state.zotero.has(a.doi);
+    var meta = [];
+    meta.push('<span class="journal-badge">' + esc(a.journal) + "</span>");
+    if (inZotero) meta.push('<span class="zotero-badge" title="已在 Zotero 库里">已入库</span>');
+    meta.push("<span>" + esc(a.published || "") + "</span>");
+    var vol = a.volume ? "V" + esc(a.volume) : "";
+    if (a.issue) vol += " I" + esc(a.issue);
+    if (vol) meta.push("<span>" + vol + "</span>");
+    if (a.page) meta.push("<span>" + esc(a.page) + "</span>");
+    if (a.abstractSource === "openalex") meta.push('<span title="Crossref 未提供摘要，取自 OpenAlex">OA</span>');
+
+    var titleHtml = a.titleCn
+      ? '<h3 class="title-cn">' + highlight(a.titleCn, state.query) + "</h3>" +
+        '<p class="title-en">' + highlight(a.title, state.query) + "</p>"
+      : '<h3 class="title-fallback">' + highlight(a.title, state.query) + "</h3>";
+
+    var authors = authorLine(a);
+    var transBtn = a.titleCn ? "" :
+      '<button class="btn primary" data-act="translate">翻译这篇</button>';
+    var zoteroBtn = inZotero
+      ? '<button class="btn done" disabled>✓ 已入库</button>'
+      : '<button class="btn" data-act="zotero-one">存入 Zotero</button>';
+
+    el.innerHTML =
+      '<div class="card-head">' +
+        '<input type="checkbox" class="pick" data-act="pick"' + picked + ' title="选中以导出">' +
+        '<button class="star' + starred + '" data-act="star" title="标记想读">★</button>' +
+        meta.join('<span class="sep">·</span>') +
+      "</div>" +
+      '<div class="titles">' + titleHtml + "</div>" +
+      (authors ? '<p class="title-en" style="font-size:12.5px">' + esc(authors) + "</p>" : "") +
+      abstractBlock(a) +
+      '<div class="actions">' +
+        transBtn +
+        '<a class="btn" href="' + esc(a.url) + '" target="_blank" rel="noopener">原文 / DOI</a>' +
+        '<button class="btn" data-act="bibtex-one">复制 BibTeX</button>' +
+        zoteroBtn +
+      "</div>";
+
+    return el;
+  }
+
+  function renderChunk() {
+    var slice = filtered.slice(rendered, rendered + CHUNK);
+    if (!slice.length) return;
+    var frag = document.createDocumentFragment();
+    var lastDay = rendered > 0 ? (filtered[rendered - 1].published || "").slice(0, 10) : "";
+    slice.forEach(function (a) {
+      var day = (a.published || "").slice(0, 10);
+      if (day !== lastDay) {
+        var h = document.createElement("h2");
+        h.className = "day-heading";
+        h.textContent = day;
+        frag.appendChild(h);
+        lastDay = day;
+      }
+      frag.appendChild(cardEl(a));
+    });
+    list.appendChild(frag);
+    rendered += slice.length;
+  }
+
+  function rebuild() {
+    filtered = ARTICLES.filter(matches);
+    list.textContent = "";
+    rendered = 0;
+    renderChunk();
+    updateCounts();
+  }
+
+  function updateCounts() {
+    visibleCount.innerHTML = "显示 <b>" + filtered.length + "</b> / " + ARTICLES.length + " 篇";
+    starCount.innerHTML = "★ <b>" + state.starred.size + "</b>";
+    zoteroCount.innerHTML = "✓ <b>" + state.zotero.size + "</b>";
+    renderSidebar();
+    actionbar.classList.toggle("show", state.selected.size > 0);
+    pickCount.textContent = "已选 " + state.selected.size + " 篇";
+  }
+
+  function renderSidebar() {
+    var counts = {};
+    ARTICLES.forEach(function (a) { counts[a.journal] = (counts[a.journal] || 0) + 1; });
+    var order = Object.keys(counts).sort(function (x, y) { return counts[y] - counts[x]; });
+    var html = '<button class="side-item' + (state.journal === "all" ? " on" : "") +
+      '" data-journal="all">全部<span class="n">' + ARTICLES.length + "</span></button>";
+    order.forEach(function (j) {
+      html += '<button class="side-item' + (state.journal === j ? " on" : "") +
+        '" data-journal="' + esc(j) + '">' + esc(j) + '<span class="n">' + counts[j] + "</span></button>";
+    });
+    document.getElementById("journalList").innerHTML = html;
+  }
+
+  // ---------------------------------------------------------------- 交互
+  var searchTimer = null;
+  searchBox.addEventListener("input", function () {
+    clearTimeout(searchTimer);
+    var value = searchBox.value.trim();
+    searchTimer = setTimeout(function () {
+      state.query = value;
+      rebuild();
+    }, 160);
+  });
+
+  document.getElementById("langSeg").addEventListener("click", function (e) {
+    var btn = e.target.closest("button[data-lang]");
+    if (!btn) return;
+    state.lang = btn.dataset.lang;
+    document.body.className = "lang-" + state.lang;
+    Array.prototype.forEach.call(this.children, function (b) { b.classList.toggle("on", b === btn); });
+  });
+
+  document.getElementById("daySeg").addEventListener("click", function (e) {
+    var btn = e.target.closest("button[data-days]");
+    if (!btn) return;
+    state.days = parseInt(btn.dataset.days, 10);
+    Array.prototype.forEach.call(this.children, function (b) { b.classList.toggle("on", b === btn); });
+    rebuild();
+  });
+
+  document.querySelector(".sidebar").addEventListener("click", function (e) {
+    var btn = e.target.closest("button[data-journal]");
+    if (!btn) return;
+    state.journal = btn.dataset.journal;
+    rebuild();
+  });
+
+  document.getElementById("viewSeg").addEventListener("click", function (e) {
+    var btn = e.target.closest("button[data-view]");
+    if (!btn) return;
+    state.view = btn.dataset.view;
+    Array.prototype.forEach.call(this.children, function (b) { b.classList.toggle("on", b === btn); });
+    rebuild();
+  });
+
+  list.addEventListener("click", function (e) {
+    var btn = e.target.closest("button[data-act]");
+    if (!btn) return;
+    var card = btn.closest(".article");
+    var doi = card.dataset.doi;
+    var act = btn.dataset.act;
+
+    if (act === "star") {
+      if (state.starred.has(doi)) state.starred.delete(doi);
+      else state.starred.add(doi);
+      saveSet(STORE_KEY, state.starred);
+      syncMarks();
+      btn.classList.toggle("on", state.starred.has(doi));
+      // 「已收藏」筛选下取消收藏，那张卡就该从列表里消失，得整体重排
+      if (state.view === "starred") rebuild(); else updateCounts();
+    } else if (act === "expand") {
+      card.querySelectorAll(".clamped").forEach(function (p) { p.classList.toggle("clamped"); });
+      btn.textContent = btn.textContent === "展开摘要" ? "收起摘要" : "展开摘要";
+    } else if (act === "bibtex-one") {
+      copyText(bibtexFor([find(doi)]), btn);
+    } else if (act === "zotero-one") {
+      sendToZotero([doi], btn);
+    } else if (act === "translate") {
+      requestTranslation(doi, btn, card);
+    }
+  });
+
+  list.addEventListener("change", function (e) {
+    var box = e.target.closest("input[data-act='pick']");
+    if (!box) return;
+    var doi = box.closest(".article").dataset.doi;
+    if (box.checked) state.selected.add(doi); else state.selected.delete(doi);
+    updateCounts();
+  });
+
+  document.getElementById("actionbar").addEventListener("click", function (e) {
+    var btn = e.target.closest("button[data-act]");
+    if (!btn) return;
+    var dois = Array.from(state.selected);
+    if (btn.dataset.act === "bibtex") {
+      copyText(bibtexFor(dois.map(find)), btn);
+    } else if (btn.dataset.act === "zotero") {
+      sendToZotero(dois, btn);
+    } else if (btn.dataset.act === "clear") {
+      state.selected.clear();
+      list.querySelectorAll("input[data-act='pick']").forEach(function (b) { b.checked = false; });
+      updateCounts();
+    }
+  });
+
+  function find(doi) {
+    for (var i = 0; i < ARTICLES.length; i++) if (ARTICLES[i].doi === doi) return ARTICLES[i];
+    return null;
+  }
+
+  // ---------------------------------------------------------------- 导出
+  function bibtexFor(items) {
+    return items.filter(Boolean).map(function (a) {
+      var first = (a.authors && a.authors[0] && a.authors[0].family) || "anon";
+      var key = first.replace(/[^A-Za-z]/g, "") + (a.published || "").slice(0, 4) +
+                a.doi.replace(/[^A-Za-z0-9]/g, "").slice(-4);
+      var authors = (a.authors || []).map(function (x) {
+        return x.family + (x.given ? ", " + x.given : "");
+      }).join(" and ");
+      return "@article{" + key + ",\n" +
+        "  title   = {" + a.title + "},\n" +
+        "  author  = {" + authors + "},\n" +
+        "  journal = {" + a.journalName + "},\n" +
+        "  year    = {" + (a.published || "").slice(0, 4) + "},\n" +
+        (a.volume ? "  volume  = {" + a.volume + "},\n" : "") +
+        (a.issue ? "  number  = {" + a.issue + "},\n" : "") +
+        (a.page ? "  pages   = {" + a.page + "},\n" : "") +
+        "  doi     = {" + a.doi + "},\n" +
+        "  url     = {" + a.url + "}\n}";
+    }).join("\n\n");
+  }
+
+  function copyText(text, btn) {
+    var done = function () {
+      var old = btn.textContent;
+      btn.textContent = "已复制 ✓";
+      setTimeout(function () { btn.textContent = old; }, 1600);
+    };
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done, function () { download(text, "refs.bib"); });
+    } else {
+      // file:// 下没有剪贴板权限，退化成下载
+      download(text, "refs.bib");
+      done();
+    }
+  }
+
+  function download(text, filename) {
+    var blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  // ---------------------------------------------------------------- 本地服务
+  function flash(btn, msg, ok) {
+    var old = btn.textContent;
+    var short = msg.length > 26 ? msg.slice(0, 25) + "…" : msg;
+    btn.textContent = short;
+    btn.title = msg;   // 完整信息放 tooltip 里
+    btn.disabled = true;
+    setTimeout(function () { btn.textContent = old; btn.disabled = false; }, 2400);
+    if (!ok) console.warn(msg);
+  }
+
+  function sendToZotero(dois, btn) {
+    if (!SERVER) {
+      flash(btn, "需启动本地服务", false);
+      return;
+    }
+    if (!ZOTERO) {
+      flash(btn, "Zotero 没在运行", false);
+      return;
+    }
+    var items = dois.map(find).filter(Boolean);
+    flash(btn, "导入中…");
+    fetch("/api/zotero", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items: items })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      flash(btn, d.ok ? "已存入 " + d.added + " 篇" : "失败：" + (d.error || "未知"), d.ok);
+      if (d.ok) applyZoteroResult(dois);
+    }).catch(function () { flash(btn, "本地服务无响应", false); });
+  }
+
+  function syncMarks() {
+    if (!SERVER) return;
+    fetch("/api/mark", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ starred: Array.from(state.starred) })
+    }).catch(function () { /* 静默失败，localStorage 仍是权威副本 */ });
+  }
+
+  // 入库成功后把卡片就地刷成「已入库」，不整页重排、不丢滚动位置
+  function applyZoteroResult(dois) {
+    dois.forEach(function (doi) {
+      state.zotero.add(doi);
+      state.selected.delete(doi);
+    });
+    saveSet(ZOTERO_KEY, state.zotero);
+    if (state.view === "zotero") {
+      rebuild();
+      return;
+    }
+    Array.prototype.forEach.call(list.querySelectorAll(".article"), function (card) {
+      var doi = card.dataset.doi;
+      if (dois.indexOf(doi) === -1) return;
+      var paper = find(doi);
+      if (paper) card.replaceWith(cardEl(paper));
+    });
+    updateCounts();
+  }
+
+  function requestTranslation(doi, btn, card) {
+    if (!SERVER) {
+      flash(btn, "需启动本地服务", false);
+      return;
+    }
+    var paper = find(doi);
+    flash(btn, "翻译中…");
+    fetch("/api/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ doi: doi, title: paper.title, abstract: paper.abstract })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok) { flash(btn, "翻译失败：" + (d.error || "未知"), false); return; }
+      var a = find(doi);
+      a.titleCn = d.titleCn;
+      a.abstractCn = d.abstractCn;
+      var fresh = cardEl(a);
+      card.replaceWith(fresh);
+      flash(btn, "已翻译 ✓", true);
+    }).catch(function () { flash(btn, "翻译失败", false); });
+  }
+
+  // ---------------------------------------------------------------- 启动
+  function init() {
+    renderSidebar();
+    rebuild();
+
+    sentinel = document.createElement("div");
+    sentinel.style.height = "1px";
+    list.after(sentinel);
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(function (entries) {
+        if (entries[0].isIntersecting && rendered < filtered.length) renderChunk();
+      }, { rootMargin: "600px" }).observe(sentinel);
+    } else {
+      window.addEventListener("scroll", function () {
+        if (rendered >= filtered.length) return;
+        if (window.innerHeight + window.scrollY > document.body.offsetHeight - 800) renderChunk();
+      });
+    }
+
+    if (!TRANSLATED) {
+      serverPill.textContent = "英文模式（未翻译）";
+      serverPill.className = "stat-pill warn";
+    }
+    fetch("/api/health").then(function (r) { return r.json(); }).then(function (d) {
+      SERVER = !!d.ok;
+      ZOTERO = !!d.zotero;
+      serverPill.textContent = SERVER
+        ? (ZOTERO ? "本地服务 + Zotero 已连接" : "本地服务已连接")
+        : "静态模式";
+      serverPill.className = "stat-pill" + (SERVER ? " ok" : " warn");
+      if (SERVER) {
+        // 服务端的记录和本地的取并集，避免两种模式下各记一份
+        (d.starred || []).forEach(function (doi) { state.starred.add(doi); });
+        (d.zoteroDois || []).forEach(function (doi) { state.zotero.add(doi); });
+        saveSet(STORE_KEY, state.starred);
+        saveSet(ZOTERO_KEY, state.zotero);
+        rebuild();
+      }
+    }).catch(function () {
+      SERVER = false;
+      serverPill.textContent = "静态模式 · 按需翻译需启动本地服务";
+      serverPill.className = "stat-pill warn";
+    });
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<opml version="1.0">
+  <head>
+    <title>Feeds of tinytiger98 from Inoreader [https://www.inoreader.com]</title>
+  </head>
+  <body>
+    <outline text="PRL Editors' Suggestions" title="PRL Editors' Suggestions" type="rss" xmlUrl="https://feeds.aps.org/rss/recent/prlsuggestions.xml" htmlUrl="http://journals.aps.org/prl/"/>
+    <outline text="The long read | The Guardian" title="The long read | The Guardian" type="rss" xmlUrl="https://www.theguardian.com/news/series/the-long-read/rss" htmlUrl="http://www.theguardian.com/news/series/the-long-read"/>
+    <outline text="6 Minute English" title="6 Minute English" type="rss" xmlUrl="http://downloads.bbc.co.uk/podcasts/worldservice/how2/rss.xml" htmlUrl="http://www.bbc.co.uk/learningenglish/english/features/6-minute-english"/>
+    <outline text="Journal" title="Journal">
+      <outline text="Nature Computational Science - Issue - nature.com science feeds" title="Nature Computational Science - Issue - nature.com science feeds" type="rss" xmlUrl="http://feeds.nature.com/natcomputsci/rss/current" htmlUrl="http://feeds.nature.com/natcomputsci/rss/current"/>
+      <outline text="RSC - Chem. Commun. latest articles" title="RSC - Chem. Commun. latest articles" type="rss" xmlUrl="http://feeds.rsc.org/rss/cc" htmlUrl="http://pubs.rsc.org/en/Journals/Journal/CC"/>
+      <outline text="AAAS: Science Advances: Table of Contents" title="AAAS: Science Advances: Table of Contents" type="rss" xmlUrl="https://www.science.org/action/showFeed?type=etoc&amp;feed=rss&amp;jc=sciadv" htmlUrl="https://www.science.org/action/showFeed?type=etoc&amp;feed=rss&amp;jc=sciadv"/>
+      <outline text="RSC - Phys. Chem. Chem. Phys. latest articles" title="RSC - Phys. Chem. Chem. Phys. latest articles" type="rss" xmlUrl="http://feeds.rsc.org/rss/cp" htmlUrl="http://pubs.rsc.org/en/Journals/Journal/CP"/>
+      <outline text="The Journal of Chemical Physics Current Issue" title="The Journal of Chemical Physics Current Issue" type="rss" xmlUrl="https://pubs.aip.org/rss/site_1000043/1000024.xml" htmlUrl="https://pubs.aip.org/jcp"/>
+      <outline text="RSC - Chem. Educ. Res. Pract. latest articles" title="RSC - Chem. Educ. Res. Pract. latest articles" type="rss" xmlUrl="http://feeds.rsc.org/rss/rp" htmlUrl="http://pubs.rsc.org/en/Journals/Journal/RP"/>
+      <outline text="The Journal of Physical Chemistry A: Latest Articles (ACS Publications)" title="The Journal of Physical Chemistry A: Latest Articles (ACS Publications)" type="rss" xmlUrl="https://pubs.acs.org/action/showFeed?type=axatoc&amp;feed=rss&amp;jc=jpcafh" htmlUrl="https://pubs.acs.org/?af=R"/>
+      <outline text="The Journal of Physical Chemistry Letters: Latest Articles (ACS Publications)" title="The Journal of Physical Chemistry Letters: Latest Articles (ACS Publications)" type="rss" xmlUrl="https://pubs.acs.org/action/showFeed?type=axatoc&amp;feed=rss&amp;jc=jpclcd" htmlUrl="https://pubs.acs.org/?af=R"/>
+      <outline text="Journal of Chemical Theory and Computation: Latest Articles (ACS Publications)" title="Journal of Chemical Theory and Computation: Latest Articles (ACS Publications)" type="rss" xmlUrl="https://pubs.acs.org/action/showFeed?type=axatoc&amp;feed=rss&amp;jc=jctcce" htmlUrl="https://pubs.acs.org/?af=R"/>
+      <outline text="Journal of Chemical Information and Modeling: Latest Articles (ACS Publications)" title="Journal of Chemical Information and Modeling: Latest Articles (ACS Publications)" type="rss" xmlUrl="https://pubs.acs.org/action/showFeed?type=axatoc&amp;feed=rss&amp;jc=jcisd8" htmlUrl="https://pubs.acs.org/?af=R"/>
+      <outline text="Journal of Chemical Education: Latest Articles (ACS Publications)" title="Journal of Chemical Education: Latest Articles (ACS Publications)" type="rss" xmlUrl="https://pubs.acs.org/action/showFeed?type=axatoc&amp;feed=rss&amp;jc=jceda8" htmlUrl="https://pubs.acs.org/?af=R"/>
+      <outline text="Journal of the American Chemical Society: Latest Articles (ACS Publications)" title="Journal of the American Chemical Society: Latest Articles (ACS Publications)" type="rss" xmlUrl="https://pubs.acs.org/action/showFeed?type=axatoc&amp;feed=rss&amp;jc=jacsat" htmlUrl="https://pubs.acs.org/?af=R"/>
+      <outline text="JACS Au: Latest Articles (ACS Publications)" title="JACS Au: Latest Articles (ACS Publications)" type="rss" xmlUrl="https://pubs.acs.org/action/showFeed?type=axatoc&amp;feed=rss&amp;jc=jaaucr" htmlUrl="https://pubs.acs.org/?af=R"/>
+      <outline text="Chemical Reviews: Latest Articles (ACS Publications)" title="Chemical Reviews: Latest Articles (ACS Publications)" type="rss" xmlUrl="https://pubs.acs.org/action/showFeed?type=axatoc&amp;feed=rss&amp;jc=chreay" htmlUrl="https://pubs.acs.org/?af=R"/>
+      <outline text="ScienceDirect Publication: Journal of Catalysis" title="ScienceDirect Publication: Journal of Catalysis" type="rss" xmlUrl="https://rss.sciencedirect.com/publication/science/00219517" htmlUrl="https://www.sciencedirect.com/"/>
+      <outline text="Nature Chemistry" title="Nature Chemistry" type="rss" xmlUrl="https://www.nature.com/nchem/journal/vaop/ncurrent/rss.rdf" htmlUrl="https://www.nature.com/nchem/current_issue/"/>
+      <outline text="Nature Communications - current - nature.com science feeds" title="Nature Communications - current - nature.com science feeds" type="rss" xmlUrl="http://feeds.nature.com/ncomms/rss/current" htmlUrl="http://www.nature.com/ncomms/rss/current"/>
+      <outline text="ScienceDirect Publication: Journal of Computational Physics" title="ScienceDirect Publication: Journal of Computational Physics" type="rss" xmlUrl="https://rss.sciencedirect.com/publication/science/00219991" htmlUrl="https://www.sciencedirect.com/"/>
+      <outline text="Journal of Computational Chemistry" title="Journal of Computational Chemistry" type="rss" xmlUrl="http://onlinelibrary.wiley.com/rss/journal/10.1002/(ISSN)1096-987X" htmlUrl="http://onlinelibrary.wiley.com/resolve/doi?DOI=10.1002%2F%28ISSN%291096-987X"/>
+      <outline text="ScienceDirect Publication: Computational and Theoretical Chemistry" title="ScienceDirect Publication: Computational and Theoretical Chemistry" type="rss" xmlUrl="https://rss.sciencedirect.com/publication/science/2210271X" htmlUrl="https://www.sciencedirect.com/"/>
+      <outline text="RSC - Chem. Sci. latest articles" title="RSC - Chem. Sci. latest articles" type="rss" xmlUrl="http://feeds.rsc.org/rss/sc" htmlUrl="http://pubs.rsc.org/en/Journals/Journal/SC"/>
+      <outline text="npj Computational Materials - nature.com science feeds" title="npj Computational Materials - nature.com science feeds" type="rss" xmlUrl="http://feeds.nature.com/npjcompumats/rss/current" htmlUrl="http://feeds.nature.com/npjcompumats/rss/current"/>
+    </outline>
+  </body>
+</opml>

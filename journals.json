@@ -1,0 +1,47 @@
+{
+  "_comment": "papers_digest.py 的期刊列表。加刊就往 journals 里加一条，ISSN 在 https://api.crossref.org/journals?query=<刊名> 查。",
+  "journals": [
+    {
+      "short": "JCTC",
+      "name": "Journal of Chemical Theory and Computation",
+      "issn": "1549-9626",
+      "homepage": "https://pubs.acs.org/journal/jctcce"
+    },
+    {
+      "short": "JCIM",
+      "name": "Journal of Chemical Information and Modeling",
+      "issn": "1549-9596",
+      "homepage": "https://pubs.acs.org/journal/jcisd8"
+    },
+    {
+      "short": "JPCL",
+      "name": "The Journal of Physical Chemistry Letters",
+      "issn": "1948-7185",
+      "homepage": "https://pubs.acs.org/journal/jpclcd"
+    },
+    {
+      "short": "JACS",
+      "name": "Journal of the American Chemical Society",
+      "issn": "0002-7863",
+      "homepage": "https://pubs.acs.org/journal/jacsat"
+    },
+    {
+      "short": "ChemSci",
+      "name": "Chemical Science",
+      "issn": "2041-6520",
+      "homepage": "https://pubs.rsc.org/en/journals/journalissues/sc"
+    },
+    {
+      "short": "PCCP",
+      "name": "Physical Chemistry Chemical Physics",
+      "issn": "1463-9076",
+      "homepage": "https://pubs.rsc.org/en/journals/journalissues/cp"
+    },
+    {
+      "short": "JCP",
+      "name": "The Journal of Chemical Physics",
+      "issn": "0021-9606",
+      "homepage": "https://pubs.aip.org/aip/jcp"
+    }
+  ]
+}
