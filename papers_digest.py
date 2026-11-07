@@ -5,8 +5,8 @@
 - Crossref  `api.crossref.org/journals/{issn}/works` —— 标题、作者、卷期页码、日期、摘要
 - OpenAlex  `api.openalex.org/works/doi:{doi}`          —— Crossref 没给摘要时的兜底
 
-翻译走 OpenAI 兼容接口（默认华东师大 ecnu-plus），标题和摘要一次调用翻完，
-结果按 DOI 缓存到 `.cache_papers/`，重跑只翻新增的。
+更新时只翻译标题，摘要由本地服务在点击「显示摘要」时按需翻译。
+结果按 DOI 缓存到 `.cache_papers/`，标题和摘要分别校验原文。
 
 用法：
     python papers_digest.py --days 30              # 抓近 30 天并翻译，生成网页
@@ -17,14 +17,17 @@
 from __future__ import annotations
 
 import argparse
+import fcntl
 import hashlib
 import html
 import json
 import os
 import re
 import sys
+import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -37,10 +40,13 @@ from dotenv import load_dotenv
 ROOT = Path(__file__).resolve().parent
 load_dotenv(ROOT / ".env")
 
-CACHE_SCHEMA = 2
+CACHE_SCHEMA = 3
 CACHE_DIR = ROOT / ".cache_papers"
 JOURNALS_FILE = ROOT / "journals.json"
 TEMPLATE_FILE = ROOT / "papers_viewer.template.html"
+ARCHIVE_FILE = ROOT / "papers-archive.json"
+UPDATE_FILE = ROOT / "papers-update-status.json"
+READING_FILE = ROOT / "papers-reading.json"
 
 MAILTO = os.getenv("CROSSREF_MAILTO", "tinytiger98@163.com")
 HEADERS = {"User-Agent": f"papers-digest/0.1 (mailto:{MAILTO})"}
@@ -58,12 +64,15 @@ SKIP_TITLES = {
     "table of contents",
     "editorial board",
     "in this issue",
+    "contents list",
+    "front cover",
+    "back cover",
+    "inside front cover",
+    "inside back cover",
 }
 
 # 单篇翻译失败时最多再试几次（定时任务无人值守，偶发失败不该永久留坑）
 TRANSLATE_RETRIES = 2
-# 摘要超长时截断，避免极端输入拖垮单次调用
-ABSTRACT_MAX_CHARS = 4000
 
 # 一次请求翻译多少篇。批量能大幅减少请求数（1390 篇从 1390 次降到 ~140 次），
 # 又不会让单次响应长到容易漏段；调大之前先想想出错时的重试成本。
@@ -208,63 +217,70 @@ def article_from_crossref(item: dict[str, Any], journal: dict[str, str]) -> dict
 
 
 def fetch_journal(
-    journal: dict[str, str], days: int, today: date
+    journal: dict[str, str], days: int, today: date,
+    start_date: date | None = None, end_date: date | None = None,
 ) -> list[dict[str, Any]]:
-    """抓一个期刊最近 days 天的文章。
+    """抓一个期刊最近 days 天或指定起止日期的文章。
 
     先用 created（DOI 注册时间）拉一个更宽的窗口，再按 best_date 二次过滤 ——
     RSC 这类刊的 published-online 只有年份，直接按发布日期过滤会一篇都抓不到。
+    指定范围时再合并发布日期查询，补上较晚注册 DOI 的论文。
     """
-    since = today - timedelta(days=days)
-    created_from = today - timedelta(days=days + 30)
-    filters = (
+    since = start_date or today - timedelta(days=days)
+    until = end_date or today
+    created_from = since - timedelta(days=30)
+    created_until = min(today, until + timedelta(days=30)) if start_date else today
+    filters = [(
         f"type:journal-article,"
         f"from-created-date:{created_from.isoformat()},"
-        f"until-created-date:{today.isoformat()}"
-    )
+        f"until-created-date:{created_until.isoformat()}"
+    )]
+    if start_date:
+        # 补查发布日期，覆盖 DOI 较晚注册的旧论文；RSC 年份不完整仍走 created。
+        filters.append(f"type:journal-article,from-pub-date:{since.isoformat()},"
+                       f"until-pub-date:{until.isoformat()}")
     select = (
         "DOI,title,abstract,author,volume,issue,page,"
         "published-online,published-print,issued,created,type"
     )
 
-    articles: list[dict[str, Any]] = []
-    cursor = "*"
-    while cursor:
-        data = request_json(
-            f"https://api.crossref.org/journals/{journal['issn']}/works",
-            {
-                "filter": filters,
-                "select": select,
-                "rows": 200,
-                "cursor": cursor,
-                "mailto": MAILTO,
-            },
-        )
-        message = data.get("message")
-        if not message:
-            break
-        items = message.get("items") or []
-        for item in items:
-            published = best_date(item)
-            if not published or not (since <= published <= today):
-                continue
-            article = article_from_crossref(item, journal)
-            if article:  # 扉页/目录等非论文条目会被过滤成空 dict
-                articles.append(article)
-        cursor = message.get("next-cursor") if items else None
-        if cursor:
-            time.sleep(0.2)
-    return articles
+    by_doi: dict[str, dict[str, Any]] = {}
+    for query_filter in filters:
+        cursor = "*"
+        while cursor:
+            data = request_json(
+                f"https://api.crossref.org/journals/{journal['issn']}/works",
+                {"filter": query_filter, "select": select, "rows": 200,
+                 "cursor": cursor, "mailto": MAILTO},
+            )
+            message = data.get("message")
+            if not message:
+                break
+            items = message.get("items") or []
+            for item in items:
+                published = best_date(item)
+                if not published or not (since <= published <= until):
+                    continue
+                article = article_from_crossref(item, journal)
+                if article and article["doi"]:
+                    by_doi.setdefault(article["doi"], article)
+            cursor = message.get("next-cursor") if items else None
+            if cursor:
+                time.sleep(0.2)
+    return list(by_doi.values())
 
 
 def collect_articles(
-    journals: list[dict[str, str]], days: int, workers: int = 4
+    journals: list[dict[str, str]], days: int, workers: int = 4,
+    failures: list[str] | None = None,
+    start_date: date | None = None, end_date: date | None = None,
 ) -> list[dict[str, Any]]:
     """并发抓所有期刊，按 DOI 去重。"""
     today = date.today()
     by_doi: dict[str, dict[str, Any]] = {}
     with ThreadPoolExecutor(max_workers=min(workers, len(journals))) as executor:
-        futures = {executor.submit(fetch_journal, j, days, today): j for j in journals}
+        futures = {executor.submit(fetch_journal, j, days, today, start_date, end_date): j
+                   for j in journals}
         for future in as_completed(futures):
             journal = futures[future]
             try:
@@ -272,6 +288,8 @@ def collect_articles(
                     if article["doi"]:
                         by_doi.setdefault(article["doi"], article)
             except Exception as exc:  # 单个期刊失败不影响其它期刊
+                if failures is not None:
+                    failures.append(journal["short"])
                 print(f"  ! {journal['short']} 抓取失败：{exc}", file=sys.stderr)
     articles = sorted(by_doi.values(), key=lambda a: a["published"], reverse=True)
     return articles
@@ -421,25 +439,39 @@ def call_llm(prompt: str, llm: dict[str, str], timeout: int = 120) -> str:
     raise RuntimeError(f"调用失败：{last_error}")
 
 
-def translate(title: str, abstract: str, llm: dict[str, str]) -> tuple[str, str]:
-    """单篇兜底路径：一次调用把标题和摘要都翻成中文。"""
-    abstract = abstract[:ABSTRACT_MAX_CHARS]
+def translate_title(title: str, llm: dict[str, str]) -> str:
+    """只翻译标题，绝不把摘要发送给模型。"""
     rules = "\n".join(f"{i}. {rule}" for i, rule in enumerate(TRANSLATION_RULES, 1))
     prompt = (
-        "请将以下学术论文的标题和摘要翻译为中文。要求：\n"
+        "请将以下学术论文的标题翻译为中文。要求：\n"
         f"{rules}\n"
         "3. 只输出译文，不要任何解释或额外说明\n\n"
         f"标题: {title}\n\n"
-        f"摘要: {abstract or '（无）'}\n\n"
         "严格按以下格式输出：\n\n"
-        "## 标题\n[翻译后的标题]\n\n"
-        "## 摘要\n[翻译后的摘要]"
+        "## 标题\n[翻译后的标题]"
     )
     content = call_llm(prompt, llm)
-    title_cn, abstract_cn = split_translation(content)
+    title_cn, _ = split_translation(content)
     if not title_cn:
         raise RuntimeError("模型返回内容解析不出标题")
-    return title_cn, abstract_cn
+    return title_cn
+
+
+def translate_abstract(abstract: str, llm: dict[str, str]) -> str:
+    """用户明确查看时才翻译完整摘要，不重复翻译标题。"""
+    rules = "\n".join(f"{i}. {rule}" for i, rule in enumerate(TRANSLATION_RULES, 1))
+    content = call_llm(
+        "请将以下学术论文摘要完整翻译为中文。要求：\n"
+        f"{rules}\n3. 不要概括、删减或补充原文没有的信息\n"
+        "4. 只输出摘要译文，不要标题、开场白或额外说明\n\n"
+        f"摘要原文：\n{abstract}", llm,
+    ).strip()
+    if not content:
+        raise RuntimeError("模型未返回摘要译文")
+    translated = re.sub(r"^\s*(?:#{1,4}\s*)?摘要(?:\s*[:：]\s*|\s*\n)", "", content).strip()
+    if not translated:
+        raise RuntimeError("模型未返回摘要译文")
+    return translated
 
 
 def build_batch_prompt(papers: list[dict[str, Any]]) -> str:
@@ -447,7 +479,7 @@ def build_batch_prompt(papers: list[dict[str, Any]]) -> str:
     count = len(papers)
     rules = "\n".join(f"{i}. {rule}" for i, rule in enumerate(TRANSLATION_RULES, 1))
     head = (
-        f"请把下面 {count} 篇学术论文的标题和摘要分别翻译成中文。要求：\n"
+        f"请把下面 {count} 篇学术论文的标题分别翻译成中文。要求：\n"
         f"{rules}\n"
         f"{len(TRANSLATION_RULES) + 1}. 只输出译文，不要任何解释或额外说明\n"
         f"{len(TRANSLATION_RULES) + 2}. 必须输出 {count} 段，每段以原编号开头，"
@@ -455,18 +487,16 @@ def build_batch_prompt(papers: list[dict[str, Any]]) -> str:
         "输出格式（每篇一段）：\n"
         "【1】\n"
         "标题: [第 1 篇的中文标题]\n"
-        "摘要: [第 1 篇的中文摘要]\n\n"
+        "\n"
         "【2】\n"
         "标题: ...\n"
-        "摘要: ...\n\n"
+        "\n"
         "待翻译的原文：\n"
     )
     lines = [head]
     for index, paper in enumerate(papers, 1):
-        abstract = (paper.get("abstract") or "")[:ABSTRACT_MAX_CHARS]
         lines.append(f"\n【{index}】")
         lines.append(f"标题: {paper['title']}")
-        lines.append(f"摘要: {abstract or '（无摘要）'}")
     return "\n".join(lines)
 
 
@@ -491,8 +521,8 @@ def split_batch_translation(text: str) -> dict[int, str]:
 
 def translate_batch(
     papers: list[dict[str, Any]], llm: dict[str, str]
-) -> dict[str, tuple[str, str]]:
-    """一次调用翻译多篇。返回 {doi: (中文标题, 中文摘要)}。
+) -> dict[str, str]:
+    """一次调用只翻译多篇标题。返回 {doi: 中文标题}。
 
     只返回解析成功的；对不上号的（模型漏了/合并了）留给调用方逐篇补。
     """
@@ -500,21 +530,21 @@ def translate_batch(
         return {}
     if len(papers) == 1:
         paper = papers[0]
-        return {paper["doi"]: translate(paper["title"], paper["abstract"], llm)}
+        return {paper["doi"]: translate_title(paper["title"], llm)}
 
     # 批量响应更长，超时按篇数放宽
     timeout = min(90 + 20 * len(papers), 600)
     content = call_llm(build_batch_prompt(papers), llm, timeout=timeout)
     blocks = split_batch_translation(content)
 
-    results: dict[str, tuple[str, str]] = {}
+    results: dict[str, str] = {}
     for index, paper in enumerate(papers, 1):
         block = blocks.get(index)
         if not block:
             continue
-        title_cn, abstract_cn = split_translation(block)
+        title_cn, _ = split_translation(block)
         if title_cn:
-            results[paper["doi"]] = (title_cn, abstract_cn)
+            results[paper["doi"]] = title_cn
     return results
 
 
@@ -528,9 +558,36 @@ def doi_cache_name(doi: str) -> str:
 
 
 def content_hash(article: dict[str, Any]) -> str:
-    """英文原文的指纹，原文变了就重翻。"""
+    """兼容 schema 2 的标题+摘要指纹。"""
     payload = f"{article.get('title', '')}\x00{article.get('abstract', '')}"
     return hashlib.sha1(payload.encode("utf-8")).hexdigest()[:16]
+
+
+def text_hash(text: str) -> str:
+    return hashlib.sha1(text.encode("utf-8")).hexdigest()[:16]
+
+
+@contextmanager
+def file_lock(path: Path):
+    """协调后台标题更新和服务端按需翻译，防止互相覆盖。"""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a") as stream:
+        fcntl.flock(stream, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(stream, fcntl.LOCK_UN)
+
+
+def read_cache_entry(cache_dir: Path, doi: str) -> dict[str, Any]:
+    path = cache_dir / doi_cache_name(doi)
+    try:
+        entry = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    if entry.get("doi") == doi and entry.get("schema") in (2, CACHE_SCHEMA):
+        return entry
+    return {}
 
 
 def read_cache(cache_dir: Path) -> dict[str, dict[str, Any]]:
@@ -543,36 +600,55 @@ def read_cache(cache_dir: Path) -> dict[str, dict[str, Any]]:
             entry = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
-        if entry.get("schema") == CACHE_SCHEMA and entry.get("doi"):
+        if entry.get("schema") in (2, CACHE_SCHEMA) and entry.get("doi"):
             cache[entry["doi"]] = entry
     return cache
 
 
-def write_cache(cache_dir: Path, article: dict[str, Any]) -> None:
-    cache_dir.mkdir(exist_ok=True)
-    payload = {
-        "schema": CACHE_SCHEMA,
-        "doi": article["doi"],
-        "en_hash": content_hash(article),
-        "title_cn": article.get("title_cn", ""),
-        "abstract_cn": article.get("abstract_cn", ""),
-        "model": article.get("translated_by", ""),
-        "translated_at": article.get("translated_at", ""),
-    }
-    (cache_dir / doi_cache_name(article["doi"])).write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+def write_cache(
+    cache_dir: Path, article: dict[str, Any], title_only: bool = False,
+    abstract_only: bool = False,
+) -> None:
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    target = cache_dir / doi_cache_name(article["doi"])
+    with file_lock(target.with_suffix(".lock")):
+        previous = read_cache_entry(cache_dir, article["doi"])
+        if previous.get("schema") == 2:
+            if previous.get("en_hash") == content_hash(article):
+                previous.update(title_hash=text_hash(article["title"]),
+                                abstract_hash=text_hash(article.get("abstract", "")))
+            else:
+                previous = {}
+        payload = dict(previous)
+        payload.update(schema=CACHE_SCHEMA, doi=article["doi"])
+        payload.pop("en_hash", None)
+        if article.get("title_cn") and (not abstract_only or not payload.get("title_cn")):
+            payload.update(title_cn=article["title_cn"], title_hash=text_hash(article["title"]))
+        # 标题更新不抹掉另一进程刚刚翻好的摘要。
+        if not title_only or (article.get("abstract_cn") and not payload.get("abstract_cn")):
+            abstract_hash = text_hash(article.get("abstract", ""))
+            if article.get("abstract_cn") or payload.get("abstract_hash") != abstract_hash:
+                payload.update(abstract_cn=article.get("abstract_cn", ""), abstract_hash=abstract_hash)
+        payload.update(model=article.get("translated_by", previous.get("model", "")),
+                       translated_at=article.get("translated_at", previous.get("translated_at", "")))
+        atomic_write_text(target, json.dumps(payload, ensure_ascii=False, indent=2))
 
 
 def apply_cache(article: dict[str, Any], cache: dict[str, dict[str, Any]]) -> bool:
-    """命中缓存就把译文贴上，返回是否已翻译。"""
+    """分别复用标题/摘要缓存；返回是否有可用的标题缓存。"""
     entry = cache.get(article["doi"])
-    if not entry or entry.get("en_hash") != content_hash(article):
+    if not entry:
         return False
-    if not entry.get("title_cn"):
+    if entry.get("schema") == 2:
+        title_match = abstract_match = entry.get("en_hash") == content_hash(article)
+    else:
+        title_match = entry.get("title_hash") == text_hash(article.get("title", ""))
+        abstract_match = entry.get("abstract_hash") == text_hash(article.get("abstract", ""))
+    if abstract_match and entry.get("abstract_cn"):
+        article["abstract_cn"] = entry["abstract_cn"]
+    if not title_match or not entry.get("title_cn"):
         return False
     article["title_cn"] = entry.get("title_cn", "")
-    article["abstract_cn"] = entry.get("abstract_cn", "")
     article["translated_by"] = entry.get("model", "")
     article["translated_at"] = entry.get("translated_at", "")
     article["from_cache"] = True
@@ -587,21 +663,19 @@ def apply_cache(article: dict[str, Any], cache: dict[str, dict[str, Any]]) -> bo
 def record_translation(
     article: dict[str, Any],
     title_cn: str,
-    abstract_cn: str,
     llm: dict[str, str],
     cache_dir: Path,
 ) -> None:
     article["title_cn"] = title_cn
-    article["abstract_cn"] = abstract_cn
     article["translated_by"] = llm["model"]
     article["translated_at"] = datetime.now().isoformat(timespec="seconds")
-    write_cache(cache_dir, article)
+    write_cache(cache_dir, article, title_only=True)
 
 
 def apply_cached_translations(articles: list[dict[str, Any]], cache_dir: Path) -> int:
     """把缓存里已有的译文贴回文章上，返回命中数。不碰网络。"""
     cache = read_cache(cache_dir)
-    return sum(1 for a in articles if apply_cache(a, cache))
+    return sum(1 for a in articles if apply_cache(a, cache) or a.get("title_cn"))
 
 
 def translate_all(
@@ -611,7 +685,7 @@ def translate_all(
     workers: int,
     batch_size: int = BATCH_SIZE,
 ) -> tuple[int, int]:
-    """翻译所有还没译过的文章。返回（命中缓存数，新翻译数）。
+    """只翻译还没有中文标题的文章。返回（复用标题数，新翻译数）。
 
     先用一个请求批量翻多篇（省请求数、摊薄系统提示和格式说明），
     批量里漏掉的再逐篇补 —— 模型偶尔会漏段或合并编号，
@@ -645,7 +719,7 @@ def translate_all(
             for article in batch:
                 got = results.get(article["doi"])
                 if got:
-                    record_translation(article, got[0], got[1], llm, cache_dir)
+                    record_translation(article, got, llm, cache_dir)
                     translated += 1
                 else:
                     leftovers.append(article)
@@ -662,14 +736,14 @@ def translate_all(
         print(f"  批量里漏掉 {len(leftovers)} 篇，逐篇补齐…")
         with ThreadPoolExecutor(max_workers=workers) as executor:
             futures = {
-                executor.submit(translate, a["title"], a["abstract"], llm): a
+                executor.submit(translate_title, a["title"], llm): a
                 for a in leftovers
             }
             for count, future in enumerate(as_completed(futures), 1):
                 article = futures[future]
                 try:
-                    title_cn, abstract_cn = future.result()
-                    record_translation(article, title_cn, abstract_cn, llm, cache_dir)
+                    title_cn = future.result()
+                    record_translation(article, title_cn, llm, cache_dir)
                     translated += 1
                 except Exception as exc:
                     failed.append(article)
@@ -688,7 +762,7 @@ def translate_all(
             file=sys.stderr,
         )
     elif failed:
-        print(f"  ⚠️ {failed} 篇翻译失败，这些条目在页面上会显示英文原文。", file=sys.stderr)
+        print(f"  ⚠️ {len(failed)} 篇标题翻译失败，这些条目显示英文标题。", file=sys.stderr)
     return cached, translated
 
 
@@ -697,19 +771,112 @@ def translate_all(
 # --------------------------------------------------------------------------
 
 
-def load_zotero_dois() -> set[str]:
-    """读出已存入 Zotero 的 DOI（由 papers_server.py 维护）。
-
-    页面的「已加入 Zotero」筛选器靠它 —— 烤进 HTML 里，
-    这样不开本地服务、直接双击静态文件时也知道哪些已经入库了。
-    """
-    path = ROOT / "papers-zotero.json"
-    if not path.exists():
-        return set()
+def atomic_write_text(path: Path, text: str) -> None:
+    """先完整写临时文件，再替换，避免读取到半份页面/状态。"""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        mode="w", encoding="utf-8", dir=path.parent, delete=False
+    ) as stream:
+        temporary = Path(stream.name)
+        stream.write(text)
     try:
-        return set(json.loads(path.read_text(encoding="utf-8")).get("dois", []))
-    except (OSError, ValueError):
-        return set()
+        temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def read_json_file(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    # 持久数据损坏时显式报错，不能悄悄当空库覆盖。
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise ValueError(f"{path.name} 必须是 JSON 对象")
+    return value
+
+
+def is_paper(article: dict[str, Any]) -> bool:
+    return bool(article.get("doi")) and (
+        article.get("title", "").strip().lower().rstrip(".") not in SKIP_TITLES
+    )
+
+
+def keep_missing_text(article: dict[str, Any], old: dict[str, Any]) -> None:
+    """补回暂时缺失的内容；原文发生变化时不能贴回过期译文。"""
+    if not article.get("abstract") and old.get("abstract"):
+        article["abstract"] = old["abstract"]
+        article["abstract_source"] = old.get("abstract_source", "")
+    if article.get("title") == old.get("title") and not article.get("title_cn"):
+        article["title_cn"] = old.get("title_cn", "")
+    if article.get("abstract") == old.get("abstract") and not article.get("abstract_cn"):
+        article["abstract_cn"] = old.get("abstract_cn", "")
+
+
+def load_archive() -> dict[str, Any]:
+    """首次升级从每日 HTML 恢复原文及译文；此后只读持久库。"""
+    if ARCHIVE_FILE.exists():
+        archive = read_json_file(ARCHIVE_FILE)
+        if archive.get("schema") != 1 or not isinstance(archive.get("articles"), list):
+            raise ValueError("论文历史库结构不受支持，请保留文件并检查")
+        return archive
+    by_doi: dict[str, dict[str, Any]] = {}
+    last_success = ""
+    previous_success = ""
+    sources = sorted(ROOT.glob("papers-digest-20??-??-??.html"))
+    sources.append(ROOT / "papers-digest.html")
+    for path in sources:
+        if not path.exists():
+            continue
+        page = path.read_text(encoding="utf-8")
+        match = re.search(r'<script id="article-data"[^>]*>(.*?)</script>', page, re.S)
+        generated = re.search(r"生成于 (\d{4}-\d{2}-\d{2} \d{2}:\d{2})", page)
+        if not match or not generated:
+            continue
+        entries = json.loads(match.group(1))
+        if not entries:
+            continue
+        timestamp = datetime.fromisoformat(generated.group(1)).astimezone().isoformat()
+        if timestamp > last_success:
+            previous_success, last_success = last_success, timestamp
+        for item in entries:
+            if not is_paper(item):
+                continue
+            old = by_doi.get(item["doi"], {})
+            article = {
+                "doi": item["doi"], "journal": item["journal"],
+                "journal_name": item.get("journalName", ""), "title": item["title"],
+                "title_cn": item.get("titleCn", ""), "abstract": item.get("abstract", ""),
+                "abstract_cn": item.get("abstractCn", ""),
+                "abstract_source": item.get("abstractSource", ""),
+                "authors": item.get("authors", []), "volume": item.get("volume", ""),
+                "issue": item.get("issue", ""), "page": item.get("page", ""),
+                "published": item.get("published", ""), "url": item.get("url", ""),
+                "first_seen_at": old.get("first_seen_at", item.get("firstSeenAt", timestamp)),
+            }
+            # 后来的数据源缺字段时，不抹掉已经收集的摘要和译文。
+            keep_missing_text(article, old)
+            by_doi[item["doi"]] = article
+    return {"schema": 1, "articles": list(by_doi.values()),
+            "lastSuccessAt": last_success, "previousSuccessAt": previous_success}
+
+
+def merge_archive(
+    archive: dict[str, Any], incoming: list[dict[str, Any]], timestamp: str
+) -> tuple[list[dict[str, Any]], int]:
+    by_doi = {a["doi"]: dict(a) for a in archive.get("articles", []) if is_paper(a)}
+    added = 0
+    for item in incoming:
+        if not is_paper(item):
+            continue
+        old = by_doi.get(item["doi"])
+        article = dict(item)
+        article["first_seen_at"] = old.get("first_seen_at", timestamp) if old else timestamp
+        if old:
+            keep_missing_text(article, old)
+        else:
+            added += 1
+        by_doi[item["doi"]] = article
+    return sorted(by_doi.values(), key=lambda a: (a["published"], a["doi"]), reverse=True), added
 
 
 def render_html(
@@ -717,10 +884,13 @@ def render_html(
     output_path: Path,
     days: int,
     translated: bool,
+    metadata: dict[str, Any] | None = None,
 ) -> None:
     """把数据内联进模板，写出一个自包含的 HTML。"""
     template = TEMPLATE_FILE.read_text(encoding="utf-8")
-    zotero_dois = load_zotero_dois()
+    marks = read_json_file(ROOT / "papers-marks.json").get("starred", [])
+    reading = read_json_file(READING_FILE).get("articles", {})
+    metadata = metadata or {}
     data = [
         {
             "doi": a["doi"],
@@ -737,19 +907,22 @@ def render_html(
             "page": a["page"],
             "published": a["published"],
             "url": a["url"],
-            "inZotero": a["doi"] in zotero_dois,
+            "starred": a["doi"] in marks,
+            "reading": reading.get(a["doi"]),
+            "firstSeenAt": a.get("first_seen_at", ""),
         }
         for a in articles
     ]
     payload = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
     html_out = (
         template.replace("__DATA__", payload)
+        .replace("__META__", json.dumps(metadata, ensure_ascii=False).replace("</", "<\\/"))
         .replace("__GENERATED__", datetime.now().strftime("%Y-%m-%d %H:%M"))
         .replace("__COUNT__", str(len(data)))
         .replace("__DAYS__", str(days))
         .replace("__TRANSLATED__", "true" if translated else "false")
     )
-    output_path.write_text(html_out, encoding="utf-8")
+    atomic_write_text(output_path, html_out)
 
 
 # --------------------------------------------------------------------------
@@ -757,11 +930,34 @@ def render_html(
 # --------------------------------------------------------------------------
 
 
+def resolve_date_range(
+    start: str | None, end: str | None, today: date | None = None,
+) -> tuple[date, date] | None:
+    """起止日期必须成对、完整、递增且不晚于今天（含两个端点）。"""
+    if start is None and end is None:
+        return None
+    if not isinstance(start, str) or not isinstance(end, str):
+        raise ValueError("请选择完整的开始日期和结束日期")
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", start) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", end):
+        raise ValueError("日期格式应为 YYYY-MM-DD")
+    try:
+        since, until = date.fromisoformat(start), date.fromisoformat(end)
+    except ValueError as exc:
+        raise ValueError("日期无效，请检查年月日") from exc
+    if since > until:
+        raise ValueError("开始日期不能晚于结束日期")
+    if until > (today or date.today()):
+        raise ValueError("结束日期不能晚于今天")
+    return since, until
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="抓取期刊新论文，翻译成中英对照，生成可双击打开的本地网页。"
     )
     parser.add_argument("--days", type=int, default=30, help="回溯天数（默认 30）")
+    parser.add_argument("--start-date", help="抓取开始日期 YYYY-MM-DD（含当天）")
+    parser.add_argument("--end-date", help="抓取结束日期 YYYY-MM-DD（含当天）")
     parser.add_argument("--output", type=str, default=None, help="输出去向（默认 papers-digest.html）")
     parser.add_argument("--limit", type=int, default=None, help="只处理最新的 N 篇（调试用）")
     parser.add_argument("--workers", type=int, default=3, help="翻译并发数（ECNU 单模型上限 3）")
@@ -774,20 +970,44 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--fetch-workers", type=int, default=4, help="抓取并发数")
     parser.add_argument("--no-llm", action="store_true", help="只抓取不翻译（英文页面）")
     parser.add_argument("--cache-dir", type=Path, default=CACHE_DIR, help="缓存目录")
-    return parser.parse_args()
+    args = parser.parse_args()
+    try:
+        resolve_date_range(args.start_date, args.end_date)
+    except ValueError as exc:
+        parser.error(str(exc))
+    return args
 
 
 def main() -> None:
     args = parse_args()
     journals = load_journals()
 
-    print(f"抓取 {len(journals)} 个期刊最近 {args.days} 天的文章…")
-    articles = collect_articles(journals, args.days, workers=args.fetch_workers)
+    selected_range = resolve_date_range(getattr(args, "start_date", None),
+                                       getattr(args, "end_date", None))
+    date_options = dict(zip(("start_date", "end_date"), selected_range)) if selected_range else {}
+    range_metadata = {"startDate": selected_range[0].isoformat(),
+                      "endDate": selected_range[1].isoformat()} if selected_range else {}
+    scope = f"{selected_range[0]} 至 {selected_range[1]}" if selected_range else f"最近 {args.days} 天"
+    print(f"抓取 {len(journals)} 个期刊{scope}的文章…")
+    failures: list[str] = []
+    articles = collect_articles(journals, args.days, workers=args.fetch_workers,
+                                failures=failures, **date_options)
     print(f"  Crossref 拿到 {len(articles)} 篇")
+    if not articles:
+        status = {"state": "failed", "attemptedAt": datetime.now().astimezone().isoformat(),
+                  "failedJournals": sorted(failures),
+                  "message": "所选范围未取得论文，已保留上次成功页面", **range_metadata}
+        atomic_write_text(UPDATE_FILE, json.dumps(status, ensure_ascii=False, indent=2))
+        print("更新失败：未取得论文，保留上次成功页面。", file=sys.stderr)
+        raise SystemExit(1)
 
-    filled = fill_missing_abstracts(articles, workers=args.fetch_workers)
-    if filled:
-        print(f"  OpenAlex 补了 {filled} 篇摘要")
+    # 复用历史标题和摘要；缺少摘要的 OpenAlex 兜底推迟到用户查看时。
+    archive = load_archive()
+    previous = {a["doi"]: a for a in archive.get("articles", [])}
+    for article in articles:
+        old = previous.get(article["doi"])
+        if old:
+            keep_missing_text(article, old)
 
     if args.limit:
         articles = articles[: args.limit]
@@ -799,7 +1019,7 @@ def main() -> None:
         print(f"跳过翻译（--no-llm），从缓存贴回 {cached} 篇")
     else:
         llm = get_llm_config()
-        print(f"翻译中（模型 {llm['model']}）…")
+        print(f"只翻译新标题（模型 {llm['model']}），摘要按需翻译…")
         cached, fresh = translate_all(
             articles,
             llm,
@@ -810,16 +1030,37 @@ def main() -> None:
         print(f"  缓存命中 {cached} 篇，新翻译 {fresh} 篇")
 
     translated = any(a.get("title_cn") for a in articles)
+    metadata: dict[str, Any] = {}
+    if not args.limit:
+        timestamp = datetime.now().astimezone().isoformat(timespec="seconds")
+        with file_lock(ARCHIVE_FILE.with_suffix(".lock")):
+            # 翻译期间可能刚有人点开摘要，必须重读并合并最新历史。
+            archive = load_archive()
+            articles, added = merge_archive(archive, articles, timestamp)
+            metadata = {
+                "state": "partial" if failures else "ok", "attemptedAt": timestamp,
+                "lastSuccessAt": archive.get("lastSuccessAt", "") if failures else timestamp,
+                "previousSuccessAt": archive.get("lastSuccessAt", ""),
+                "failedJournals": sorted(failures), "added": added,
+                "translationPolicy": "titles-only",
+                **range_metadata,
+                "message": "部分期刊更新失败，保留其历史记录" if failures else "更新成功",
+            }
+            archive.update({"articles": articles, "lastSuccessAt": metadata["lastSuccessAt"],
+                            "previousSuccessAt": metadata["previousSuccessAt"]})
+            atomic_write_text(ARCHIVE_FILE, json.dumps(archive, ensure_ascii=False))
+            atomic_write_text(UPDATE_FILE, json.dumps(metadata, ensure_ascii=False, indent=2))
+        translated = any(a.get("title_cn") for a in articles)
 
     missing = sum(1 for a in articles if not a.get("title") or not a.get("abstract"))
     if missing:
         print(f"  注意：{missing} 篇缺标题或摘要")
 
     output = Path(args.output) if args.output else ROOT / "papers-digest.html"
-    render_html(articles, output, args.days, translated)
+    render_html(articles, output, args.days, translated, metadata)
     dated = output.with_name(f"{output.stem}-{date.today().isoformat()}{output.suffix}")
     if dated != output:
-        render_html(articles, dated, args.days, translated)
+        render_html(articles, dated, args.days, translated, metadata)
 
     print(f"完成：{len(articles)} 篇 → {output}")
     print(f"                              {dated}")

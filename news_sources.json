@@ -1,0 +1,140 @@
+{
+  "sources": [
+    {
+      "id": "chinanews",
+      "name": "中新网",
+      "url": "https://www.chinanews.com.cn/rss/importnews.xml",
+      "category": "综合新闻",
+      "language": "zh",
+      "body_excerpt": false
+    },
+    {
+      "id": "bbc",
+      "name": "BBC",
+      "url": "https://feeds.bbci.co.uk/news/world/rss.xml",
+      "category": "综合新闻",
+      "language": "en",
+      "body_excerpt": false
+    },
+    {
+      "id": "guardian",
+      "name": "The Guardian",
+      "url": "https://www.theguardian.com/world/rss",
+      "category": "综合新闻",
+      "language": "en",
+      "body_excerpt": false
+    },
+    {
+      "id": "ithome",
+      "name": "IT之家",
+      "url": "https://www.ithome.com/rss/",
+      "category": "科技 / AI",
+      "language": "zh",
+      "body_excerpt": true
+    },
+    {
+      "id": "solidot",
+      "name": "Solidot",
+      "url": "https://www.solidot.org/index.rss",
+      "category": "科技 / AI",
+      "language": "zh",
+      "body_excerpt": true
+    },
+    {
+      "id": "tmtpost",
+      "name": "钛媒体",
+      "url": "https://www.tmtpost.com/rss.xml",
+      "category": "科技 / AI",
+      "language": "zh",
+      "body_excerpt": false
+    },
+    {
+      "id": "techcrunch",
+      "name": "TechCrunch AI",
+      "url": "https://techcrunch.com/category/artificial-intelligence/feed/",
+      "category": "科技 / AI",
+      "language": "en",
+      "body_excerpt": false
+    },
+    {
+      "id": "mit",
+      "name": "MIT Technology Review",
+      "url": "https://www.technologyreview.com/topic/artificial-intelligence/feed",
+      "category": "科技 / AI",
+      "language": "en",
+      "body_excerpt": false
+    },
+    {
+      "id": "sspai",
+      "name": "少数派",
+      "url": "https://sspai.com/feed",
+      "category": "科技 / AI",
+      "language": "zh",
+      "body_excerpt": false
+    },
+    {
+      "id": "rthk",
+      "name": "香港电台·大中华",
+      "url": "https://rthk.hk/rthk/news/rss/c_expressnews_greaterchina.xml",
+      "category": "综合新闻",
+      "language": "zh",
+      "body_excerpt": true
+    },
+    {
+      "id": "npr",
+      "name": "NPR",
+      "url": "https://feeds.npr.org/1001/rss.xml",
+      "category": "综合新闻",
+      "language": "en",
+      "body_excerpt": false
+    },
+    {
+      "id": "nyt",
+      "name": "纽约时报·国际",
+      "url": "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
+      "category": "综合新闻",
+      "language": "en",
+      "body_excerpt": false
+    },
+    {
+      "id": "dw",
+      "name": "DW",
+      "url": "https://rss.dw.com/rdf/rss-en-all",
+      "category": "综合新闻",
+      "language": "en",
+      "body_excerpt": false
+    },
+    {
+      "id": "france24",
+      "name": "France 24",
+      "url": "https://www.france24.com/en/rss",
+      "category": "综合新闻",
+      "language": "en",
+      "body_excerpt": false
+    },
+    {
+      "id": "ars",
+      "name": "Ars Technica",
+      "url": "https://feeds.arstechnica.com/arstechnica/index",
+      "category": "科技 / AI",
+      "language": "en",
+      "body_excerpt": false
+    },
+    {
+      "id": "verge",
+      "name": "The Verge",
+      "url": "https://www.theverge.com/rss/index.xml",
+      "category": "科技 / AI",
+      "language": "en",
+      "body_excerpt": false
+    },
+    {
+      "id": "wired",
+      "name": "WIRED AI",
+      "url": "https://www.wired.com/feed/tag/ai/latest/rss",
+      "category": "科技 / AI",
+      "language": "en",
+      "body_excerpt": false
+    }
+  ]
+}

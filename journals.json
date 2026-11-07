@@ -26,6 +26,24 @@
       "homepage": "https://pubs.acs.org/journal/jacsat"
     },
     {
+      "short": "JACSAu",
+      "name": "JACS Au",
+      "issn": "2691-3704",
+      "homepage": "https://pubs.acs.org/journal/jaaucr"
+    },
+    {
+      "short": "ChemRev",
+      "name": "Chemical Reviews",
+      "issn": "1520-6890",
+      "homepage": "https://pubs.acs.org/journal/chreay"
+    },
+    {
+      "short": "ChemSocRev",
+      "name": "Chemical Society Reviews",
+      "issn": "1460-4744",
+      "homepage": "https://pubs.rsc.org/en/journals/journalissues/cs"
+    },
+    {
       "short": "ChemSci",
       "name": "Chemical Science",
       "issn": "2041-6520",
@@ -42,6 +60,66 @@
       "name": "The Journal of Chemical Physics",
       "issn": "0021-9606",
       "homepage": "https://pubs.aip.org/aip/jcp"
+    },
+    {
+      "short": "DigitalDiscovery",
+      "name": "Digital Discovery",
+      "issn": "2635-098X",
+      "homepage": "https://pubs.rsc.org/en/journals/journalissues/dd"
+    },
+    {
+      "short": "MLST",
+      "name": "Machine Learning: Science and Technology",
+      "issn": "2632-2153",
+      "homepage": "https://iopscience.iop.org/journal/2632-2153"
+    },
+    {
+      "short": "Nature",
+      "name": "Nature",
+      "issn": "1476-4687",
+      "homepage": "https://www.nature.com/nature/"
+    },
+    {
+      "short": "Science",
+      "name": "Science",
+      "issn": "1095-9203",
+      "homepage": "https://www.science.org/journal/science"
+    },
+    {
+      "short": "SciAdv",
+      "name": "Science Advances",
+      "issn": "2375-2548",
+      "homepage": "https://www.science.org/journal/sciadv"
+    },
+    {
+      "short": "NatCommun",
+      "name": "Nature Communications",
+      "issn": "2041-1723",
+      "homepage": "https://www.nature.com/ncomms/"
+    },
+    {
+      "short": "NatChem",
+      "name": "Nature Chemistry",
+      "issn": "1755-4330",
+      "homepage": "https://www.nature.com/nchem/"
+    },
+    {
+      "short": "NatMachIntell",
+      "name": "Nature Machine Intelligence",
+      "issn": "2522-5839",
+      "homepage": "https://www.nature.com/natmachintell/"
+    },
+    {
+      "short": "NatComputSci",
+      "name": "Nature Computational Science",
+      "issn": "2662-8457",
+      "homepage": "https://www.nature.com/natcomputsci/"
+    },
+    {
+      "short": "npjComputMater",
+      "name": "npj Computational Materials",
+      "issn": "2057-3960",
+      "homepage": "https://www.nature.com/npjcompmaterials/"
     }
   ]
 }

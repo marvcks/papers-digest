@@ -9,7 +9,14 @@ wheels/
 # Virtual environments
 .venv
 .env
+.env.*
+!.env.example
 .claude/
+.DS_Store
+
+# 本机审计输出与界面验证截图
+outputs/
+theme-*.png
 
 # 论文速览
 # 生成物：每天重新生成，体积大且可从 .cache_papers/ 重现
@@ -18,4 +25,17 @@ papers-digest*.html
 .cache_papers/
 papers-marks.json
 papers-zotero.json
+papers-archive.json
+papers-archive.lock
+papers-reading.json
+papers-update-status.json
 .playwright-mcp/
+.firecrawl/
+.playwright-cli/
+output/playwright/
+.papers-to-zotero.lock
+
+# 新闻速览：持久历史与生成页面留在本机
+news-digest.html
+news-archive.json
+news-update-status.json
